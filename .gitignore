@@ -22,6 +22,8 @@ datasets/
 *.nii.gz
 *.dcm
 *.zip
+*.pt
+*.pth
 
 # Logs / outputs
 runs/
