@@ -16,8 +16,8 @@ env/
 .ipynb_checkpoints/
 
 # Data (à ne pas versionner)
-data/
-datasets/
+/data/
+/datasets/
 *.nii
 *.nii.gz
 *.dcm
