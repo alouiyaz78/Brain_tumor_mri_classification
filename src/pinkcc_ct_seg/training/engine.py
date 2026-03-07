@@ -96,3 +96,26 @@ def validate_one_epoch(
         "preds": all_preds,
         "targets": all_targets,
     }
+@torch.no_grad()
+def predict_probabilities(model, loader, device):
+    """
+    Retourne :
+    - y_true : labels réels
+    - probs_1 : probabilités de la classe 1 (tumor)
+    """
+    model.eval()
+
+    all_probs = []
+    all_targets = []
+
+    for images, labels in tqdm(loader, desc="Predicting", leave=False):
+        images = images.to(device)
+        labels = labels.to(device)
+
+        outputs = model(images)
+        probs = torch.softmax(outputs, dim=1)[:, 1]
+
+        all_probs.extend(probs.detach().cpu().tolist())
+        all_targets.extend(labels.detach().cpu().tolist())
+
+    return all_targets, all_probs
