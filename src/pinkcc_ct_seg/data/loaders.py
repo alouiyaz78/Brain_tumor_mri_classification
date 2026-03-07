@@ -1,14 +1,22 @@
 from collections import Counter
-
 import torch
 from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
 
+# N'oubliez pas l'import de vos transformations !
+from pinkcc_ct_seg.data.transforms import get_train_transforms, get_eval_transforms
 
-def make_weighted_sampler(subset: Subset) -> WeightedRandomSampler:
+
+def make_weighted_sampler(dataset) -> WeightedRandomSampler:
     """
     Crée un sampler pondéré pour compenser le déséquilibre des classes.
     """
-    labels = [subset[i][1].item() for i in range(len(subset))]
+    # Extraction des labels (suppose que dataset[i] renvoie (image, label))
+    labels = [dataset[i][1] for i in range(len(dataset))]
+    
+    # Si les labels sont des tenseurs, on les convertit avec .item()
+    if isinstance(labels[0], torch.Tensor):
+        labels = [label.item() for label in labels]
+        
     counts = Counter(labels)
 
     class_weights = {cls: 1.0 / count for cls, count in counts.items()}
@@ -28,7 +36,17 @@ def make_loaders(
     num_workers: int = 2,
     weighted: bool = False,
     pin_memory: bool = False,
+    augmentation_level: str = 'standard'  # <-- Notre ajout pour le raffinage !
 ):
+    """
+    Construit les DataLoaders PyTorch avec gestion optionnelle du déséquilibre (weighted)
+    et choix du niveau d'augmentation de données.
+    """
+    # 1. Application dynamique des transformations
+    train_set.transform = get_train_transforms(augmentation_level=augmentation_level)
+    val_set.transform = get_eval_transforms()
+
+    # 2. Création des chargeurs
     if weighted:
         sampler = make_weighted_sampler(train_set)
         train_loader = DataLoader(
