@@ -43,3 +43,39 @@ def get_eval_transforms(img_size: int = 224) -> transforms.Compose:
             std=(0.229, 0.224, 0.225),
         ),
     ])
+
+# Tranformation TTA (Test Time Augmentation) pour la robustesse des prédictions
+def get_tta_transforms(img_size: int = 224):
+    """
+    Retourne une liste de transformations pour le Test Time Augmentation.
+    """
+    normalize = transforms.Normalize(
+        mean=(0.485, 0.456, 0.406),
+        std=(0.229, 0.224, 0.225),
+    )
+
+    return [
+        transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.ToTensor(),
+            normalize,
+        ]),
+        transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.RandomHorizontalFlip(p=1.0),
+            transforms.ToTensor(),
+            normalize,
+        ]),
+        transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.RandomRotation(degrees=(5, 5)),
+            transforms.ToTensor(),
+            normalize,
+        ]),
+        transforms.Compose([
+            transforms.Resize((img_size, img_size)),
+            transforms.RandomRotation(degrees=(-5, -5)),
+            transforms.ToTensor(),
+            normalize,
+        ]),
+    ]
