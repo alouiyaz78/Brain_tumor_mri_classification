@@ -1,38 +1,13 @@
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.egg-info/
-dist/
-build/
-
-# Virtual env
-.venv/
-venv/
-env/
-
-# Jupyter
 .ipynb_checkpoints/
+.venv/
+.env
 
-# Data (à ne pas versionner)
-data/
-/datasets/
-*.nii
-*.nii.gz
-*.dcm
-*.zip
-*.pt
-*.pth
-
-# Logs / outputs
-runs/
-outputs/
-checkpoints/
-wandb/
-mlruns/
-
-# OS
-.DS_Store
-Thumbs.db
+artifacts/logs/
+artifacts/predictions/
+artifacts/figures/
+data/raw/
+data/processed/
 poetry-installer-error-*.log
+.DS_Store
