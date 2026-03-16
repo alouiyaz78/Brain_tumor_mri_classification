@@ -16,6 +16,6 @@ def save_checkpoint(model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(model.state_dict(), path)
 
-def load_checkpoint(model, path):
-    model.load_state_dict(torch.load(path, map_location=get_device()))
+def load_checkpoint(model, path, map_location=None):
+    model.load_state_dict(torch.load(path, map_location=map_location))
     return model
