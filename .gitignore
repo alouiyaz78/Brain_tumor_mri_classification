@@ -5,6 +5,12 @@ __pycache__/
 .env
 
 artifacts/logs/
+artifacts/
+*.pt
+*.pth
+data/
+notebooks/data/
+notebooks/models/
 artifacts/predictions/
 artifacts/figures/
 data/raw/
