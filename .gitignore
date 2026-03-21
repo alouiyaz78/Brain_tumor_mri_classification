@@ -2,18 +2,14 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .venv/
-.env
 
-artifacts/logs/
-artifacts/
-*.pt
-*.pth
-data/
-notebooks/data/
-notebooks/models/
-artifacts/predictions/
-artifacts/figures/
 data/raw/
 data/processed/
-poetry-installer-error-*.log
-.DS_Store
+
+artifacts/checkpoints/
+artifacts/logs/
+artifacts/predictions/
+artifacts/figures/
+
+*.pt
+*.pth
