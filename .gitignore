@@ -1,38 +1,15 @@
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.egg-info/
-dist/
-build/
-
-# Virtual env
-.venv/
-venv/
-env/
-
-# Jupyter
 .ipynb_checkpoints/
+.venv/
 
-# Data (à ne pas versionner)
-/data/
-/datasets/
-*.nii
-*.nii.gz
-*.dcm
-*.zip
+data/raw/
+data/processed/
+
+artifacts/checkpoints/
+artifacts/logs/
+artifacts/predictions/
+artifacts/figures/
+
 *.pt
 *.pth
-
-# Logs / outputs
-runs/
-outputs/
-checkpoints/
-wandb/
-mlruns/
-
-# OS
-.DS_Store
-Thumbs.db
-poetry-installer-error-*.log

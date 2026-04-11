@@ -1,9 +1,9 @@
 [project]
-name = "pinkcc-challenge-cité-neutral-minds"
+name = "brain-tumor-mri-classification"
 version = "0.1.0"
-description = ""
+description = "Brain tumor classification from MRI images using deep learning"
 authors = [
-    {name = "Yazid",email = "alouiyaz78@gmail.com"}
+    {name = "Yazid", email = "alouiyaz78@gmail.com"}
 ]
 requires-python = ">=3.12,<3.15"
 dependencies = [
@@ -16,9 +16,15 @@ dependencies = [
     "pillow (>=12.1.1,<13.0.0)",
     "torch (>=2.10.0,<3.0.0)",
     "torchvision (>=0.25.0,<0.26.0)",
-    "torchaudio (>=2.10.0,<3.0.0)"
+    "torchaudio (>=2.10.0,<3.0.0)",
+    "jupyter (>=1.1.1,<2.0.0)",
+    "nbconvert (>=7.17.1,<8.0.0)"
 ]
 
+[tool.poetry]
+packages = [
+    { include = "brain_tumor_mri", from = "src" }
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
