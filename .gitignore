@@ -6,7 +6,7 @@ __pycache__/
 data/raw/
 data/processed/
 
-artifacts/checkpoints/
+
 artifacts/logs/
 artifacts/predictions/
 artifacts/figures/
