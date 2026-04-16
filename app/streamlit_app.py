@@ -60,7 +60,7 @@ if uploaded_files:
         st.image(
             image,
             caption="Image originale",
-            use_container_width=True,
+            width="stretch",
         )
 
 else:
