@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from io import BytesIO
 
 import streamlit as st
 from PIL import Image
@@ -19,10 +20,29 @@ st.set_page_config(
     layout="wide",
 )
 
-checkpoint_path = PROJECT_ROOT / "artifacts" / "checkpoints" / "best_efficientnet_b0.pt"
+CHECKPOINT_PATH = PROJECT_ROOT / "artifacts" / "checkpoints" / "best_efficientnet_b0.pt"
+
+
+@st.cache_resource
+def get_model():
+    return load_model(str(CHECKPOINT_PATH))
+
+
+def pil_to_bytes(img: Image.Image) -> bytes:
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def array_to_pil(arr):
+    return Image.fromarray(arr)
+
 
 st.title("Brain Tumor MRI Classification")
-st.caption("Classification binaire avec visualisation Grad-CAM. Démo éducative uniquement.")
+st.markdown(
+    "Classification binaire **tumor / no_tumor** avec **Grad-CAM** et "
+    "**pseudo-segmentation** basée sur la zone d’attention du modèle."
+)
 
 with st.sidebar:
     st.header("Options")
@@ -36,37 +56,39 @@ with st.sidebar:
     show_heatmap = st.checkbox("Afficher la heatmap brute", value=False)
 
 uploaded_files = st.file_uploader(
-    "Upload une ou plusieurs images IRM",
+    "Charger une ou plusieurs images IRM",
     type=["png", "jpg", "jpeg"],
     accept_multiple_files=True,
 )
 
-@st.cache_resource
-def get_model():
-    return load_model(str(checkpoint_path))
-
 if uploaded_files:
     model = get_model()
-
     st.success(f"{len(uploaded_files)} image(s) chargée(s).")
 
     for idx, uploaded_file in enumerate(uploaded_files, start=1):
         image = Image.open(uploaded_file).convert("RGB")
 
-        result = predict_pil_image(model, image)
+        result = predict_pil_image(
+            model=model,
+            image=image,
+            threshold=0.5,
+            img_size=224,
+        )
+
         gradcam_result = generate_gradcam_outputs(
             model=model,
             image=image,
             cam_threshold=cam_threshold,
+            img_size=224,
         )
 
-        st.markdown(f"---")
+        st.markdown("---")
         st.subheader(f"Image {idx} — {uploaded_file.name}")
 
         m1, m2, m3 = st.columns(3)
         m1.metric("Classe prédite", result["pred_label"])
-        m2.metric("Confiance", f'{result["confidence"]:.4f}')
-        m3.metric("Probabilité tumeur", f'{result["probabilities"]["tumor"]:.4f}')
+        m2.metric("Confiance", f"{result['confidence']:.4f}")
+        m3.metric("Probabilité tumeur", f"{result['probabilities']['tumor']:.4f}")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -102,5 +124,35 @@ if uploaded_files:
                 caption="Heatmap Grad-CAM",
                 use_container_width=True,
             )
+
+        d1, d2, d3 = st.columns(3)
+
+        with d1:
+            st.download_button(
+                label="Télécharger overlay",
+                data=pil_to_bytes(array_to_pil(gradcam_result["overlay"])),
+                file_name=f"{Path(uploaded_file.name).stem}_overlay.png",
+                mime="image/png",
+                key=f"overlay_{idx}",
+            )
+
+        with d2:
+            st.download_button(
+                label="Télécharger masque",
+                data=pil_to_bytes(array_to_pil(gradcam_result["mask_rgb"])),
+                file_name=f"{Path(uploaded_file.name).stem}_mask.png",
+                mime="image/png",
+                key=f"mask_{idx}",
+            )
+
+        with d3:
+            st.download_button(
+                label="Télécharger intersection",
+                data=pil_to_bytes(array_to_pil(gradcam_result["intersection"])),
+                file_name=f"{Path(uploaded_file.name).stem}_intersection.png",
+                mime="image/png",
+                key=f"intersection_{idx}",
+            )
+
 else:
     st.info("Charge une ou plusieurs images pour lancer la prédiction.")

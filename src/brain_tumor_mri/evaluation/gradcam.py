@@ -39,6 +39,13 @@ def generate_gradcam_outputs(
     img_uint8 = np.uint8(img_np * 255)
     intersection = img_uint8.copy()
     intersection[binary_mask == 0] = 0
+    FINAL_SIZE = (300, 300)
+
+    overlay = cv2.resize(overlay, FINAL_SIZE)
+    heatmap_rgb = cv2.resize(heatmap_rgb, FINAL_SIZE)
+    mask_rgb = cv2.resize(mask_rgb, FINAL_SIZE)
+    intersection = cv2.resize(intersection, FINAL_SIZE)
+    image_resized = image_resized.resize(FINAL_SIZE)
 
     return {
         "grayscale_cam": grayscale_cam,
