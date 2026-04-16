@@ -1,12 +1,26 @@
 from __future__ import annotations
 
 import numpy as np
-import cv2
 from PIL import Image
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 from brain_tumor_mri.inference.predict import prepare_pil_image
+
+
+def _resize_array(arr: np.ndarray, size=(300, 300)) -> np.ndarray:
+    return np.array(Image.fromarray(arr).resize(size))
+
+
+def _jet_colormap(gray_uint8: np.ndarray) -> np.ndarray:
+    x = gray_uint8.astype(np.float32) / 255.0
+
+    r = np.clip(1.5 - np.abs(4 * x - 3), 0, 1)
+    g = np.clip(1.5 - np.abs(4 * x - 2), 0, 1)
+    b = np.clip(1.5 - np.abs(4 * x - 1), 0, 1)
+
+    heatmap = np.stack([r, g, b], axis=-1)
+    return (heatmap * 255).astype(np.uint8)
 
 
 def generate_gradcam_outputs(
@@ -28,8 +42,7 @@ def generate_gradcam_outputs(
     overlay = show_cam_on_image(img_np, grayscale_cam, use_rgb=True)
 
     heatmap_uint8 = np.uint8(255 * grayscale_cam)
-    heatmap_color = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
-    heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
+    heatmap_rgb = _jet_colormap(heatmap_uint8)
 
     binary_mask = (grayscale_cam >= cam_threshold).astype(np.uint8)
 
@@ -39,12 +52,13 @@ def generate_gradcam_outputs(
     img_uint8 = np.uint8(img_np * 255)
     intersection = img_uint8.copy()
     intersection[binary_mask == 0] = 0
+
     FINAL_SIZE = (300, 300)
 
-    overlay = cv2.resize(overlay, FINAL_SIZE)
-    heatmap_rgb = cv2.resize(heatmap_rgb, FINAL_SIZE)
-    mask_rgb = cv2.resize(mask_rgb, FINAL_SIZE)
-    intersection = cv2.resize(intersection, FINAL_SIZE)
+    overlay = _resize_array(overlay, FINAL_SIZE)
+    heatmap_rgb = _resize_array(heatmap_rgb, FINAL_SIZE)
+    mask_rgb = _resize_array(mask_rgb, FINAL_SIZE)
+    intersection = _resize_array(intersection, FINAL_SIZE)
     image_resized = image_resized.resize(FINAL_SIZE)
 
     return {
