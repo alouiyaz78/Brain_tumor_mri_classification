@@ -1,86 +1,56 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Callable, Optional
-
-import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 from PIL import Image
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.image import show_cam_on_image
+
+from brain_tumor_mri.inference.predict import prepare_pil_image
 
 
-def disable_inplace_relu(module: nn.Module) -> None:
-    for child_name, child in module.named_children():
-        if isinstance(child, nn.ReLU):
-            setattr(module, child_name, nn.ReLU(inplace=False))
-        else:
-            disable_inplace_relu(child)
+def generate_gradcam_outputs(
+    model,
+    image: Image.Image,
+    cam_threshold: float = 0.45,
+    img_size: int = 224,
+):
+    input_tensor, _ = prepare_pil_image(image, img_size=img_size)
 
+    target_layer = model.features[-1]
+    cam = GradCAM(model=model, target_layers=[target_layer])
 
-class GradCAM:
-    def __init__(self, model: nn.Module, target_layer: nn.Module) -> None:
-        self.model = model
-        self.target_layer = target_layer
-        self.activations: Optional[torch.Tensor] = None
-        self.gradients: Optional[torch.Tensor] = None
-        self._register_hooks()
+    grayscale_cam = cam(input_tensor=input_tensor)[0]
 
-    def _register_hooks(self) -> None:
-        def forward_hook(module, inputs, output):
-            self.activations = output.detach()
+    image_resized = image.resize((img_size, img_size)).convert("RGB")
+    img_np = np.array(image_resized).astype(np.float32) / 255.0
 
-        def backward_hook(module, grad_input, grad_output):
-            self.gradients = grad_output[0].detach()
+    overlay = show_cam_on_image(img_np, grayscale_cam, use_rgb=True)
 
-        self.target_layer.register_forward_hook(forward_hook)
-        self.target_layer.register_full_backward_hook(backward_hook)
+    heatmap_uint8 = np.uint8(255 * grayscale_cam)
+    heatmap_color = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
+    heatmap_rgb = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
 
-    def generate(self, input_tensor: torch.Tensor, class_idx: Optional[int] = None):
-        self.model.zero_grad()
-        output = self.model(input_tensor)
+    binary_mask = (grayscale_cam >= cam_threshold).astype(np.uint8)
 
-        if class_idx is None:
-            class_idx = int(torch.argmax(output, dim=1).item())
+    mask_rgb = np.zeros((img_size, img_size, 3), dtype=np.uint8)
+    mask_rgb[:, :, 0] = binary_mask * 255
 
-        score = output[:, class_idx]
-        score.backward()
+    img_uint8 = np.uint8(img_np * 255)
+    intersection = img_uint8.copy()
+    intersection[binary_mask == 0] = 0
+    FINAL_SIZE = (300, 300)
 
-        if self.gradients is None or self.activations is None:
-            raise RuntimeError("Grad-CAM hooks did not capture gradients/activations.")
+    overlay = cv2.resize(overlay, FINAL_SIZE)
+    heatmap_rgb = cv2.resize(heatmap_rgb, FINAL_SIZE)
+    mask_rgb = cv2.resize(mask_rgb, FINAL_SIZE)
+    intersection = cv2.resize(intersection, FINAL_SIZE)
+    image_resized = image_resized.resize(FINAL_SIZE)
 
-        weights = self.gradients.mean(dim=(2, 3), keepdim=True)
-        cam = (weights * self.activations).sum(dim=1, keepdim=True)
-        cam = F.relu(cam)
-        cam = F.interpolate(cam, size=input_tensor.shape[-2:], mode="bilinear", align_corners=False)
-        cam = cam.squeeze().cpu().numpy()
-
-        if cam.max() > cam.min():
-            cam = (cam - cam.min()) / (cam.max() - cam.min())
-        else:
-            cam = np.zeros_like(cam)
-
-        probs = F.softmax(output, dim=1).detach().cpu().numpy()[0]
-        pred_class = int(np.argmax(probs))
-        pred_prob = float(np.max(probs))
-        return cam, pred_class, pred_prob, probs
-
-
-def load_original_rgb(path: str | Path) -> np.ndarray:
-    img = Image.open(path).convert("RGB")
-    return np.array(img)
-
-
-def make_input_tensor(path: str | Path, transform: Callable, device: torch.device) -> torch.Tensor:
-    img = Image.open(path).convert("RGB")
-    return transform(img).unsqueeze(0).to(device)
-
-
-def overlay_heatmap(image_rgb: np.ndarray, cam: np.ndarray, alpha: float = 0.35) -> np.ndarray:
-    cam_resized = Image.fromarray((cam * 255).astype(np.uint8)).resize((image_rgb.shape[1], image_rgb.shape[0]))
-    cam_resized = np.array(cam_resized) / 255.0
-    cmap = plt.get_cmap("jet")
-    heatmap = cmap(cam_resized)[..., :3]
-    overlay = np.clip((1 - alpha) * (image_rgb / 255.0) + alpha * heatmap, 0, 1)
-    return overlay
+    return {
+        "grayscale_cam": grayscale_cam,
+        "overlay": overlay,
+        "heatmap_rgb": heatmap_rgb,
+        "mask_rgb": mask_rgb,
+        "intersection": intersection,
+    }
