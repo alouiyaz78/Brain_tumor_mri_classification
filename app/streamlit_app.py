@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 
 import streamlit as st
+import numpy as np
 from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -58,9 +59,9 @@ if uploaded_files:
         m3.metric("Probabilité tumeur", f"{result['probabilities']['tumor']:.4f}")
 
         st.image(
-            image,
+            np.array(image),
             caption="Image originale",
-            width="stretch",
+            width=300,
         )
 
 else:
