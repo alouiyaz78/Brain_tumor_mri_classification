@@ -1,6 +1,4 @@
-streamlit==1.33.0
 numpy
 pillow
-torch==2.2.2
-torchvision==0.17.2
-gradio
+torch==2.5.1
+torchvision==0.20.1
