@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import os
 import numpy as np
 from PIL import Image
 import gradio as gr
@@ -21,7 +22,7 @@ model = load_model(str(CHECKPOINT_PATH))
 
 
 # =========================
-# Fonction d'inférence
+# Analyse détaillée (une image)
 # =========================
 def run_inference(image_np, cam_threshold):
     if image_np is None:
@@ -57,6 +58,66 @@ def run_inference(image_np, cam_threshold):
         gradcam_result["intersection"],
         gradcam_result["heatmap_rgb"],
     )
+
+
+# =========================
+# Analyse batch (plusieurs images)
+# =========================
+def run_batch(file_paths, cam_threshold):
+    if not file_paths:
+        return [], [["Aucun fichier", "", "", ""]]
+
+    gallery_items = []
+    prediction_rows = []
+
+    for file_path in file_paths:
+        try:
+            image = Image.open(file_path).convert("RGB")
+
+            result = predict_pil_image(
+                model=model,
+                image=image,
+                threshold=0.5,
+                img_size=224,
+            )
+
+            gradcam_result = generate_gradcam_outputs(
+                model=model,
+                image=image,
+                cam_threshold=cam_threshold,
+                img_size=224,
+            )
+
+            filename = os.path.basename(file_path)
+
+            gallery_items.append(
+                (
+                    gradcam_result["overlay"],
+                    f"{filename} | {result['pred_label']}"
+                )
+            )
+
+            prediction_rows.append([
+                filename,
+                result["pred_label"],
+                f"{result['confidence']:.4f}",
+                f"{result['probabilities']['tumor']:.4f}",
+            ])
+
+        except Exception as e:
+            filename = os.path.basename(file_path)
+            error_img = np.zeros((224, 224, 3), dtype=np.uint8)
+
+            gallery_items.append((error_img, f"{filename} | erreur"))
+
+            prediction_rows.append([
+                filename,
+                "Erreur",
+                "-",
+                str(e),
+            ])
+
+    return gallery_items, prediction_rows
 
 
 with gr.Blocks(
@@ -98,9 +159,9 @@ with gr.Blocks(
 
     with gr.Tabs():
         # ==========================================================
-        # ONGLET 1 : Analyse d'une image
+        # ONGLET 1 : Analyse détaillée
         # ==========================================================
-        with gr.Tab("Analyse d’une image"):
+        with gr.Tab("Analyse détaillée"):
             gr.Markdown(
                 """
 ### Description générale
@@ -155,21 +216,21 @@ Il ne s’agit pas d’une segmentation médicale exacte pixel par pixel, mais d
                     with gr.Row():
                         overlay_img = gr.Image(
                             label="Superposition Grad-CAM",
-                            height=260,
+                            height=240,
                         )
                         mask_img = gr.Image(
                             label="Pseudo-segmentation",
-                            height=260,
+                            height=240,
                         )
 
                     with gr.Row():
                         intersection_img = gr.Image(
                             label="Intersection",
-                            height=260,
+                            height=240,
                         )
                         heatmap_img = gr.Image(
                             label="Carte thermique",
-                            height=260,
+                            height=240,
                         )
 
                     gr.Markdown(
@@ -211,7 +272,77 @@ Il ne s’agit pas d’une segmentation médicale exacte pixel par pixel, mais d
             )
 
         # ==========================================================
-        # ONGLET 2 : Performance globale
+        # ONGLET 2 : Mode batch / comparaison
+        # ==========================================================
+        with gr.Tab("Mode batch / comparaison"):
+            gr.Markdown(
+                """
+### Comparaison de plusieurs images
+
+Cet onglet permet d’importer **plusieurs coupes IRM** afin de comparer rapidement
+les prédictions et les zones d’attention du modèle.
+
+Ce mode est utile pour comparer, par exemple, **plusieurs coupes d’un même cerveau**.
+
+### Affichage
+
+- une **galerie compacte** des overlays Grad-CAM
+- un **tableau récapitulatif** avec la classe prédite, la confiance
+  et la probabilité de tumeur pour chaque image
+"""
+            )
+
+            with gr.Row():
+                with gr.Column(scale=1):
+                    batch_files = gr.File(
+                        file_count="multiple",
+                        file_types=[".png", ".jpg", ".jpeg"],
+                        label="Importer plusieurs images IRM",
+                    )
+
+                    batch_threshold = gr.Slider(
+                        minimum=0.10,
+                        maximum=0.90,
+                        value=0.45,
+                        step=0.05,
+                        label="Seuil de pseudo-segmentation",
+                        info=(
+                            "Même logique que dans l’analyse détaillée, mais appliquée à toutes les images importées."
+                        ),
+                    )
+
+                    batch_button = gr.Button("Lancer la comparaison", variant="primary")
+                    batch_clear = gr.Button("Réinitialiser")
+
+                with gr.Column(scale=2):
+                    batch_gallery = gr.Gallery(
+                        label="Résultats batch (overlays Grad-CAM)",
+                        columns=2,
+                        rows=2,
+                        height=500,
+                        object_fit="contain",
+                    )
+
+                    batch_table = gr.Dataframe(
+                        headers=["Image", "Classe prédite", "Confiance", "Probabilité de tumeur"],
+                        datatype=["str", "str", "str", "str"],
+                        label="Résumé des prédictions",
+                        interactive=False,
+                    )
+
+            batch_button.click(
+                fn=run_batch,
+                inputs=[batch_files, batch_threshold],
+                outputs=[batch_gallery, batch_table],
+            )
+
+            batch_clear.click(
+                fn=lambda: (None, 0.45, [], []),
+                outputs=[batch_files, batch_threshold, batch_gallery, batch_table],
+            )
+
+        # ==========================================================
+        # ONGLET 3 : Performance globale
         # ==========================================================
         with gr.Tab("Performance globale du modèle"):
             gr.Markdown(
