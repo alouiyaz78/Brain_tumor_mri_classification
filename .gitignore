@@ -13,3 +13,6 @@ artifacts/figures/
 
 *.pt
 *.pth
+.venv_hf/
+hf_space_sync/.venv_hf/
+hf_space_sync/
